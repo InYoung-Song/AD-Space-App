@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Disclaimer } from '@/components/disclaimer';
 import { EstimatorPanel } from '@/components/estimator-panel';
-import { FormatVisual } from '@/components/format-visual';
+import { LocationImage } from '@/components/location-image';
 import { RequestInfoForm } from '@/components/request-info-form';
 import { Button } from '@/components/ui/button';
 import { Txt } from '@/components/ui/text';
@@ -51,7 +51,7 @@ export default function ListingDetail() {
       <Stack.Screen options={{ title: '' }} />
       <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 32 }]}>
         <View>
-          <FormatVisual format={listing.format} height={230} iconSize={68} />
+          <LocationImage lat={listing.lat} lng={listing.lng} format={listing.format} height={230} badge />
           <Pressable
             onPress={() => toggleFavorite(listing.id)}
             style={[styles.fab, { top: insets.top + 6, backgroundColor: t.surface }]}>

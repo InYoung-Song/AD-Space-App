@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Disclaimer } from '@/components/disclaimer';
 import { FilterBar } from '@/components/filter-bar';
-import { FormatVisual } from '@/components/format-visual';
+import { LocationImage } from '@/components/location-image';
 import { LocationSearch } from '@/components/location-search';
 import MapView from '@/components/map/MapView';
 import { PricePill } from '@/components/price-pill';
@@ -99,7 +99,7 @@ function MapPreview({ listing, onClose }: { listing: Listing; onClose: () => voi
   return (
     <Card style={styles.preview}>
       <View style={styles.previewRow}>
-        <FormatVisual format={listing.format} height={78} radius={Radius.md} iconSize={26} style={{ width: 78 }} />
+        <LocationImage lat={listing.lat} lng={listing.lng} format={listing.format} height={78} radius={Radius.md} style={{ width: 78 }} />
         <View style={{ flex: 1, gap: 3 }}>
           <Txt variant="subtitle" numberOfLines={1}>
             {listing.title}

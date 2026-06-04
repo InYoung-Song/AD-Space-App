@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Disclaimer } from '@/components/disclaimer';
-import { FormatVisual } from '@/components/format-visual';
+import { LocationImage } from '@/components/location-image';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Txt } from '@/components/ui/text';
@@ -83,7 +83,7 @@ export default function CompareScreen() {
             return (
               <Card key={listing.id} style={styles.col}>
                 <View style={styles.colClip}>
-                  <FormatVisual format={listing.format} height={84} iconSize={28} />
+                  <LocationImage lat={listing.lat} lng={listing.lng} format={listing.format} height={84} badge />
                   <Pressable onPress={() => toggleCompare(listing.id)} style={[styles.remove, { backgroundColor: t.surface }]}>
                     <Ionicons name="close" size={16} color={t.textSecondary} />
                   </Pressable>

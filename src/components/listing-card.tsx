@@ -10,7 +10,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { quickMonthly } from '@/lib/estimator';
 import { formatImpressions } from '@/lib/format';
 import { useUserData } from '@/lib/user-data';
-import { FormatVisual } from './format-visual';
+import { LocationImage } from './location-image';
 import { PricePill } from './price-pill';
 import { Card, cardShadow } from './ui/card';
 import { Txt } from './ui/text';
@@ -31,7 +31,7 @@ export function ListingCard({ listing }: { listing: Listing }) {
         onPress={() => router.push({ pathname: '/listing/[id]', params: { id: listing.id } })}
         style={styles.clip}>
         <View>
-          <FormatVisual format={listing.format} height={138} />
+          <LocationImage lat={listing.lat} lng={listing.lng} format={listing.format} height={138} />
           <View style={[styles.imgBadge, { backgroundColor: withAlpha('#000000', 0.42) }]}>
             <Ionicons name={fmt.icon} size={13} color="#fff" />
             <Txt variant="label" color="#fff">

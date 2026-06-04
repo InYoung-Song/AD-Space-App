@@ -1,10 +1,12 @@
+import { GENERATED_LISTINGS } from './generated-listings';
 import type { Listing } from './types';
 
 /**
- * Curated SAMPLE inventory for the demo. Coordinates are real locations but the
- * spaces, vendors, and circulation figures are illustrative — not live inventory.
+ * Curated samples that add format variety (digital, bus, taxi, shelter, mall)
+ * on top of the real OpenStreetMap billboard locations. Coordinates are real;
+ * vendors and circulation figures are illustrative.
  */
-export const LISTINGS: Listing[] = [
+const CURATED_LISTINGS: Listing[] = [
   // ---- New York, NY (top metro) ----
   {
     id: 'nyc-1',
@@ -305,6 +307,9 @@ export const LISTINGS: Listing[] = [
     description: 'Side panel on the local transit network.',
   },
 ];
+
+/** Real OSM billboards (464 across 46 states + DC) plus the curated variety. */
+export const LISTINGS: Listing[] = [...CURATED_LISTINGS, ...GENERATED_LISTINGS];
 
 export function getListingById(id: string): Listing | undefined {
   return LISTINGS.find((l) => l.id === id);
