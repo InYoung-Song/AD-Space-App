@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { View, type NativeSyntheticEvent } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 
-import { DEFAULT_CENTER, MAP_STYLE_URL, type MapMarker, type MapViewProps } from './types';
+import { DEFAULT_CENTER, MAP_MIN_ZOOM, MAP_STYLE_URL, US_MAX_BOUNDS, type MapMarker, type MapViewProps } from './types';
 
 function buildHtml(markers: MapMarker[], center: { lat: number; lng: number; zoom?: number }): string {
   const data = JSON.stringify(markers);
@@ -17,7 +17,7 @@ function buildHtml(markers: MapMarker[], center: { lat: number; lng: number; zoo
     'var MARKERS=' + data + ';var CENTER=' + c + ';' +
     'function post(o){if(window.ReactNativeWebView){window.ReactNativeWebView.postMessage(JSON.stringify(o));}}' +
     'function markerCss(col,sel){var s=sel?22:16;return "width:"+s+"px;height:"+s+"px;border-radius:50%;background:"+col+";border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35)"+(sel?(",0 0 0 4px "+col+"55"):"")+";transition:all .12s ease;";}' +
-    'var map=new maplibregl.Map({container:"map",style:"' + MAP_STYLE_URL + '",center:[CENTER.lng,CENTER.lat],zoom:CENTER.zoom||3.2});' +
+    'var map=new maplibregl.Map({container:"map",style:"' + MAP_STYLE_URL + '",center:[CENTER.lng,CENTER.lat],zoom:CENTER.zoom||3.4,maxBounds:' + JSON.stringify(US_MAX_BOUNDS) + ',minZoom:' + MAP_MIN_ZOOM + '});' +
     'map.addControl(new maplibregl.NavigationControl({showCompass:false}),"top-right");' +
     'map.on("click",function(){post({type:"background"});});' +
     'var objs={};' +

@@ -1,73 +1,82 @@
 # AD Space
 
-Discover where you can place **out-of-home (OOH) advertising** — billboards, digital boards,
-bus wraps, taxi tops, transit shelters and more — and get a **legitimate, transparent cost
-estimate** before you ever talk to a salesperson.
+A cross-platform app for discovering out-of-home (OOH) advertising space across the United States —
+billboards, digital boards, bus wraps, taxi tops, transit shelters — with transparent cost
+estimates. It is an informational directory and planning tool, not a broker: it does not sell or
+book space, and listings and prices are illustrative samples, not quotes.
 
-AD Space is an **informational directory + planning tool**. It does **not** sell, broker, or book
-ad space. Listings, vendors, and prices are **illustrative samples** drawn from public OOH industry
-averages — not live inventory or quotes.
+Runs on iOS, Android, and the web from one Expo / React Native codebase.
 
 ## Features
 
-- 🗺️ **Map browse + filters** — interactive map (free MapLibre + OpenFreeMap tiles, no API key) with
-  filtering by format, market tier, price, and search.
-- 🧮 **Cost estimator** — transparent CPM × Daily-Effective-Circulation math with adjustable
-  campaign length and unit count, shown as a ± range with a clear "estimate, not a quote" notice.
-- ❤️ **Save & compare** — favorite spaces and compare up to four side by side.
-- ✉️ **Request info (no sale)** — note your interest locally; no payment, booking, or contact is made.
-
-Runs on **iOS, Android, and the web (PC)** from a single Expo / React Native codebase.
+- Map browse with US-only framing, format/market/price filters, and location search (geocoded).
+- Cost estimator using standard OOH math (CPM × Daily Effective Circulation), with adjustable
+  duration and unit count, shown as a range with a clear "estimate, not a quote" note.
+- Budget planner: enter a budget and duration to get the most cost-effective mix of spaces.
+- Accounts (Supabase): email/password and Google sign-in, with per-user favorites, requests, and
+  saved plans behind a login gate.
+- Light / dark / system theme.
 
 ## How the estimate works
 
 ```
 impressions = daily reach (DEC) × days
-cost        = (impressions ÷ 1,000) × CPM
+cost        = (impressions / 1000) × CPM
 ```
 
-CPM (cost per 1,000 views) is scaled by market size; a one-time production cost is added for printed
-formats, and the result is shown as a ±15% range. Baselines come from published 2025 OOH figures.
+CPM is scaled by market size; a one-time production cost is added for printed formats; the result is
+shown as a ±15% range. Baselines are derived from published OOH figures.
 
 ## Tech stack
 
-- **Expo** (SDK 56) + **React Native** + **TypeScript**, file-based routing via **Expo Router**
-- **MapLibre GL** with **OpenFreeMap** tiles — free, no key (web: `maplibre-gl`; native: a WebView map)
-- **Zustand** (+ AsyncStorage / localStorage) for favorites, compare, filters, and saved requests
-- StyleSheet-based design system with light + dark themes
+- Expo (SDK 56) + React Native + TypeScript, file-based routing (Expo Router)
+- MapLibre GL with OpenFreeMap tiles — no API key (web uses maplibre-gl; native uses a WebView map)
+- Photon geocoder for location search — no API key
+- Supabase for auth and per-user data (Postgres + Row Level Security)
+- Zustand for local UI state (filters, compare selection, theme)
 
-## Getting started
+## Setup
+
+1. Install dependencies:
+
+   ```bash
+   npm install
+   ```
+
+2. Create a Supabase project (supabase.com), then in the SQL Editor run `supabase/schema.sql`.
+
+3. Copy `.env.example` to `.env` and fill in your project values (Project Settings → API):
+
+   ```
+   EXPO_PUBLIC_SUPABASE_URL=...
+   EXPO_PUBLIC_SUPABASE_ANON_KEY=...
+   ```
+
+   For Google sign-in, enable the Google provider under Authentication → Providers in Supabase.
+
+4. Start the app:
+
+   ```bash
+   npx expo start        # press w for web, or open in Expo Go on a phone
+   ```
+
+Until the env vars are set, the app shows a short setup screen instead of the login.
+
+## Useful commands
 
 ```bash
-npm install
-npx expo start        # press w for web (PC), or open in Expo Go on your phone
-```
-
-Other useful commands:
-
-```bash
-npm run web                 # web dev server
-npx expo export -p web      # static web build in ./dist (deployable to any static host)
 npx tsc --noEmit            # type check
+npx expo export -p web      # static web build in ./dist
 ```
 
 ## Project structure
 
 ```
 src/
-  app/                 # screens (Expo Router): (tabs)/, listing/[id], compare
-  components/          # UI primitives, map (web + native), cards, estimator, forms
-  data/                # types, ad-format defs, market tiers, curated sample listings
-  lib/                 # estimator, formatting, filtering, persisted store
+  app/                 # screens (Expo Router): (auth)/, (tabs)/, listing/[id], compare
+  components/          # UI primitives, map (web + native), cards, estimator, auth, forms
+  data/                # types, ad-format defs, market tiers, sample listings
+  lib/                 # estimator, budget, geocode, supabase, auth, per-user data, store
   constants/theme.ts   # design tokens (light/dark)
+supabase/schema.sql    # database tables + row-level security
 ```
-
-## Roadmap
-
-Budget mode, reach/frequency planning, shareable campaign plans, real OOH inventory integration,
-and app-store builds via EAS.
-
----
-
-> Estimates are illustrative and based on public industry averages. They are not quotes or offers.
-> Confirm availability and pricing with media owners directly.

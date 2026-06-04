@@ -3,6 +3,7 @@ import { StyleSheet, View, type ViewStyle } from 'react-native';
 
 import { FORMATS } from '@/data/formats';
 import type { AdFormat } from '@/data/types';
+import { useTheme } from '@/hooks/use-theme';
 import { withAlpha } from './ui/badge';
 
 interface Props {
@@ -13,29 +14,29 @@ interface Props {
   style?: ViewStyle;
 }
 
-/** Generated, offline-safe "cover" for a listing: a tinted block with the format icon. */
-export function FormatVisual({ format, height = 150, radius = 0, iconSize = 52, style }: Props) {
+/**
+ * Neutral, offline-safe "cover" for a listing: a muted surface with just a
+ * soft tint of the format color and its icon — restrained, not loud.
+ */
+export function FormatVisual({ format, height = 150, radius = 0, iconSize = 44, style }: Props) {
+  const t = useTheme();
   const f = FORMATS[format];
   return (
     <View
       style={[
-        { height, borderRadius: radius, backgroundColor: f.color },
+        { height, borderRadius: radius, backgroundColor: t.surfaceSelected },
         styles.wrap,
         style,
       ]}>
-      <View style={[styles.blob, { backgroundColor: withAlpha('#ffffff', 0.14), top: -28, left: -18 }]} />
-      <View
-        style={[
-          styles.blob,
-          { backgroundColor: withAlpha('#000000', 0.1), bottom: -42, right: -14, width: 150, height: 150 },
-        ]}
-      />
-      <Ionicons name={f.icon} size={iconSize} color={withAlpha('#ffffff', 0.96)} />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: withAlpha(f.color, 0.08) }]} />
+      <View style={[styles.iconWrap, { backgroundColor: withAlpha(f.color, 0.16) }]}>
+        <Ionicons name={f.icon} size={iconSize} color={f.color} />
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   wrap: { overflow: 'hidden', justifyContent: 'center', alignItems: 'center' },
-  blob: { position: 'absolute', width: 120, height: 120, borderRadius: 999 },
+  iconWrap: { padding: 18, borderRadius: 999 },
 });

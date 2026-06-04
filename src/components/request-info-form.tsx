@@ -5,7 +5,7 @@ import { StyleSheet, TextInput, View } from 'react-native';
 import { Radius } from '@/constants/theme';
 import type { Listing } from '@/data/types';
 import { useTheme } from '@/hooks/use-theme';
-import { useAppStore } from '@/lib/store';
+import { useUserData } from '@/lib/user-data';
 import { Button } from './ui/button';
 import { Txt } from './ui/text';
 
@@ -19,7 +19,7 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 export function RequestInfoForm({ listing, weeks, units }: Props) {
   const t = useTheme();
-  const addRequest = useAppStore((s) => s.addRequest);
+  const { addRequest } = useUserData();
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');

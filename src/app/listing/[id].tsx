@@ -17,6 +17,7 @@ import { getListingById } from '@/data/listings';
 import { MARKETS } from '@/data/markets';
 import { useTheme } from '@/hooks/use-theme';
 import { useAppStore } from '@/lib/store';
+import { useUserData } from '@/lib/user-data';
 
 export default function ListingDetail() {
   const t = useTheme();
@@ -25,9 +26,9 @@ export default function ListingDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const listing = getListingById(id);
 
-  const fav = useAppStore((s) => (listing ? s.favorites.includes(listing.id) : false));
+  const { isFavorite, toggleFavorite } = useUserData();
+  const fav = listing ? isFavorite(listing.id) : false;
   const inCompare = useAppStore((s) => (listing ? s.compareIds.includes(listing.id) : false));
-  const toggleFavorite = useAppStore((s) => s.toggleFavorite);
   const toggleCompare = useAppStore((s) => s.toggleCompare);
 
   const [weeks, setWeeks] = useState(listing ? Math.max(4, listing.minWeeks) : 4);

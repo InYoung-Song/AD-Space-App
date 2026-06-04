@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Disclaimer } from '@/components/disclaimer';
 import { FilterBar } from '@/components/filter-bar';
 import { FormatVisual } from '@/components/format-visual';
+import { LocationSearch } from '@/components/location-search';
 import MapView from '@/components/map/MapView';
 import { PricePill } from '@/components/price-pill';
 import { Button } from '@/components/ui/button';
@@ -19,9 +20,10 @@ import { MARKETS } from '@/data/markets';
 import type { Listing } from '@/data/types';
 import { useTheme } from '@/hooks/use-theme';
 import { quickMonthly } from '@/lib/estimator';
-import { formatImpressions } from '@/lib/format';
 import { filterListings } from '@/lib/filtering';
+import { formatImpressions } from '@/lib/format';
 import { useAppStore } from '@/lib/store';
+import { useUserData } from '@/lib/user-data';
 
 export default function MapScreen() {
   const t = useTheme();
@@ -35,6 +37,7 @@ export default function MapScreen() {
   );
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [center, setCenter] = useState<{ lat: number; lng: number; zoom?: number } | undefined>();
   const selected = selectedId ? getListingById(selectedId) : undefined;
 
   useEffect(() => {
@@ -47,22 +50,23 @@ export default function MapScreen() {
         style={StyleSheet.absoluteFill}
         markers={markers}
         selectedId={selectedId}
+        center={center}
         onSelect={setSelectedId}
         onBackgroundPress={() => setSelectedId(null)}
       />
 
       <View style={[styles.top, { paddingTop: insets.top + Spacing.sm }]} pointerEvents="box-none">
         <Card style={styles.header}>
+          <LocationSearch
+            onSelect={(r) => {
+              setSelectedId(null);
+              setCenter({ lat: r.lat, lng: r.lng, zoom: 12 });
+            }}
+          />
           <View style={styles.headerRow}>
-            <View style={{ flex: 1 }}>
-              <Txt variant="heading">Find ad space</Txt>
-              <Txt variant="small" muted>
-                {listings.length} space{listings.length === 1 ? '' : 's'} · tap a pin to preview
-              </Txt>
-            </View>
-            <View style={[styles.logo, { backgroundColor: t.accent }]}>
-              <Ionicons name="megaphone-outline" size={18} color={t.accentText} />
-            </View>
+            <Txt variant="small" muted>
+              {listings.length} space{listings.length === 1 ? '' : 's'} in the US
+            </Txt>
           </View>
           <FilterBar />
         </Card>
@@ -87,15 +91,15 @@ function MapPreview({ listing, onClose }: { listing: Listing; onClose: () => voi
   const fmt = FORMATS[listing.format];
   const monthly = quickMonthly(listing);
 
-  const fav = useAppStore((s) => s.favorites.includes(listing.id));
+  const { isFavorite, toggleFavorite } = useUserData();
+  const fav = isFavorite(listing.id);
   const inCompare = useAppStore((s) => s.compareIds.includes(listing.id));
-  const toggleFavorite = useAppStore((s) => s.toggleFavorite);
   const toggleCompare = useAppStore((s) => s.toggleCompare);
 
   return (
     <Card style={styles.preview}>
       <View style={styles.previewRow}>
-        <FormatVisual format={listing.format} height={78} radius={Radius.md} iconSize={30} style={{ width: 78 }} />
+        <FormatVisual format={listing.format} height={78} radius={Radius.md} iconSize={26} style={{ width: 78 }} />
         <View style={{ flex: 1, gap: 3 }}>
           <Txt variant="subtitle" numberOfLines={1}>
             {listing.title}
@@ -130,9 +134,7 @@ function MapPreview({ listing, onClose }: { listing: Listing; onClose: () => voi
           style={[styles.iconBtn, { borderColor: inCompare ? t.accent : t.border, backgroundColor: inCompare ? t.accentSoft : 'transparent' }]}>
           <Ionicons name="git-compare-outline" size={18} color={inCompare ? t.accent : t.textSecondary} />
         </Pressable>
-        <Pressable
-          onPress={() => toggleFavorite(listing.id)}
-          style={[styles.iconBtn, { borderColor: t.border }]}>
+        <Pressable onPress={() => toggleFavorite(listing.id)} style={[styles.iconBtn, { borderColor: t.border }]}>
           <Ionicons name={fav ? 'heart' : 'heart-outline'} size={18} color={fav ? t.danger : t.textSecondary} />
         </Pressable>
       </View>
@@ -142,9 +144,8 @@ function MapPreview({ listing, onClose }: { listing: Listing; onClose: () => voi
 
 const styles = StyleSheet.create({
   top: { position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: Spacing.md },
-  header: { padding: 14, gap: 12 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  logo: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  header: { padding: 12, gap: 10 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   previewWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: Spacing.md },
   hintWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: Spacing.md },
   preview: { padding: 12, gap: 12 },

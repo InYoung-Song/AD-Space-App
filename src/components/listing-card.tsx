@@ -9,7 +9,7 @@ import type { Listing } from '@/data/types';
 import { useTheme } from '@/hooks/use-theme';
 import { quickMonthly } from '@/lib/estimator';
 import { formatImpressions } from '@/lib/format';
-import { useAppStore } from '@/lib/store';
+import { useUserData } from '@/lib/user-data';
 import { FormatVisual } from './format-visual';
 import { PricePill } from './price-pill';
 import { Card, cardShadow } from './ui/card';
@@ -19,8 +19,8 @@ import { withAlpha } from './ui/badge';
 export function ListingCard({ listing }: { listing: Listing }) {
   const t = useTheme();
   const router = useRouter();
-  const fav = useAppStore((s) => s.favorites.includes(listing.id));
-  const toggleFavorite = useAppStore((s) => s.toggleFavorite);
+  const { isFavorite, toggleFavorite } = useUserData();
+  const fav = isFavorite(listing.id);
 
   const fmt = FORMATS[listing.format];
   const monthly = quickMonthly(listing);

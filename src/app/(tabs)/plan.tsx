@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Disclaimer } from '@/components/disclaimer';
 import { FilterBar } from '@/components/filter-bar';
+import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Chip } from '@/components/ui/chip';
 import { Txt } from '@/components/ui/text';
@@ -19,6 +20,7 @@ import { buildPlan, fittingSpaces } from '@/lib/budget';
 import { filterListings } from '@/lib/filtering';
 import { formatCurrency, formatImpressions } from '@/lib/format';
 import { useAppStore } from '@/lib/store';
+import { useUserData } from '@/lib/user-data';
 
 const DURATIONS = [
   { weeks: 4, label: '4 wks' },
@@ -34,8 +36,10 @@ export default function PlanScreen() {
   const insets = useSafeAreaInsets();
   const filters = useAppStore((s) => s.filters);
 
+  const { savePlan } = useUserData();
   const [budgetText, setBudgetText] = useState('10000');
   const [weeks, setWeeks] = useState(4);
+  const [saved, setSaved] = useState(false);
 
   const budget = Number(budgetText.replace(/[^0-9.]/g, '')) || 0;
 
@@ -45,6 +49,20 @@ export default function PlanScreen() {
   );
   const fits = useMemo(() => fittingSpaces(base, budget, weeks), [base, budget, weeks]);
   const plan = useMemo(() => buildPlan(base, budget, weeks), [base, budget, weeks]);
+
+  useEffect(() => setSaved(false), [budget, weeks, base]);
+
+  async function handleSave() {
+    await savePlan({
+      name: `${formatCurrency(budget, true)} · ${weeks} wks`,
+      budget,
+      weeks,
+      totalCost: plan.totalCost,
+      totalImpressions: plan.totalImpressions,
+      items: plan.items.map((s) => ({ listingId: s.listing.id, cost: s.cost, impressions: s.impressions })),
+    });
+    setSaved(true);
+  }
 
   return (
     <ScrollView
@@ -105,13 +123,13 @@ export default function PlanScreen() {
       {budget > 0 && plan.items.length > 0 ? (
         <Card padded style={{ gap: 12, borderColor: withAlpha(t.accent, 0.4), backgroundColor: withAlpha(t.accent, 0.06) }}>
           <View style={styles.planHead}>
-            <View style={[styles.planIcon, { backgroundColor: t.accent }]}>
-              <Ionicons name="sparkles-outline" size={18} color={t.accentText} />
+            <View style={[styles.planIcon, { backgroundColor: t.accentSoft }]}>
+              <Ionicons name="layers-outline" size={18} color={t.accentSoftText} />
             </View>
             <View style={{ flex: 1 }}>
-              <Txt variant="subtitle">Suggested plan</Txt>
+              <Txt variant="subtitle">Recommended mix</Txt>
               <Txt variant="small" muted>
-                Best-value mix within {formatCurrency(budget, true)} · {weeks} wks
+                Most reach within {formatCurrency(budget, true)} for {weeks} wks
               </Txt>
             </View>
           </View>
@@ -127,6 +145,15 @@ export default function PlanScreen() {
               <SpaceRow key={s.listing.id} listing={s.listing} cost={s.cost} impressions={s.impressions} t={t} highlight />
             ))}
           </View>
+
+          <Button
+            title={saved ? 'Saved to your account' : 'Save this plan'}
+            icon={saved ? 'checkmark' : 'bookmark-outline'}
+            variant={saved ? 'secondary' : 'primary'}
+            onPress={handleSave}
+            disabled={saved}
+            fullWidth
+          />
         </Card>
       ) : budget > 0 ? (
         <Card padded style={{ alignItems: 'center', gap: 8 }}>

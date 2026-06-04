@@ -13,28 +13,15 @@ export interface Filters {
   query: string;
 }
 
-export interface InfoRequest {
-  id: string;
-  listingId?: string;
-  listingTitle?: string;
-  name: string;
-  email: string;
-  message: string;
-  weeks?: number;
-  units?: number;
-  createdAt: number;
-}
-
 const MAX_COMPARE = 4;
 
+export type ThemeMode = 'system' | 'light' | 'dark';
+
 interface AppState {
-  favorites: string[];
+  /** Ephemeral compare selection (device-local). */
   compareIds: string[];
   filters: Filters;
-  requests: InfoRequest[];
-
-  toggleFavorite: (id: string) => void;
-  isFavorite: (id: string) => boolean;
+  themeMode: ThemeMode;
 
   toggleCompare: (id: string) => void;
   clearCompare: () => void;
@@ -44,7 +31,7 @@ interface AppState {
   toggleMarket: (m: MarketTier) => void;
   resetFilters: () => void;
 
-  addRequest: (req: Omit<InfoRequest, 'id' | 'createdAt'>) => void;
+  setThemeMode: (mode: ThemeMode) => void;
 }
 
 const defaultFilters: Filters = { formats: [], markets: [], maxMonthly: undefined, query: '' };
@@ -68,20 +55,16 @@ function toggle<T>(list: T[], value: T): T[] {
 
 export const useAppStore = create<AppState>()(
   persist(
-    (set, get) => ({
-      favorites: [],
+    (set) => ({
       compareIds: [],
       filters: defaultFilters,
-      requests: [],
+      themeMode: 'system',
 
-      toggleFavorite: (id) => set((s) => ({ favorites: toggle(s.favorites, id) })),
-      isFavorite: (id) => get().favorites.includes(id),
+      setThemeMode: (mode) => set({ themeMode: mode }),
 
       toggleCompare: (id) =>
         set((s) => {
-          if (s.compareIds.includes(id)) {
-            return { compareIds: s.compareIds.filter((v) => v !== id) };
-          }
+          if (s.compareIds.includes(id)) return { compareIds: s.compareIds.filter((v) => v !== id) };
           if (s.compareIds.length >= MAX_COMPARE) return s;
           return { compareIds: [...s.compareIds, id] };
         }),
@@ -91,24 +74,11 @@ export const useAppStore = create<AppState>()(
       toggleFormat: (f) => set((s) => ({ filters: { ...s.filters, formats: toggle(s.filters.formats, f) } })),
       toggleMarket: (m) => set((s) => ({ filters: { ...s.filters, markets: toggle(s.filters.markets, m) } })),
       resetFilters: () => set({ filters: defaultFilters }),
-
-      addRequest: (req) =>
-        set((s) => ({
-          requests: [
-            { ...req, id: `req-${Date.now()}`, createdAt: Date.now() },
-            ...s.requests,
-          ],
-        })),
     }),
     {
       name: 'adspace-store',
       storage,
-      partialize: (s) => ({
-        favorites: s.favorites,
-        compareIds: s.compareIds,
-        filters: s.filters,
-        requests: s.requests,
-      }),
+      partialize: (s) => ({ compareIds: s.compareIds, filters: s.filters, themeMode: s.themeMode }),
     },
   ),
 );

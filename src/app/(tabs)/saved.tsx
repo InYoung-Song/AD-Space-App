@@ -11,13 +11,14 @@ import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { LISTINGS } from '@/data/listings';
 import { useTheme } from '@/hooks/use-theme';
 import { MAX_COMPARE_ITEMS, useAppStore } from '@/lib/store';
+import { useUserData } from '@/lib/user-data';
 
 export default function SavedScreen() {
   const t = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  const favorites = useAppStore((s) => s.favorites);
+  const { favorites } = useUserData();
   const compareIds = useAppStore((s) => s.compareIds);
   const toggleCompare = useAppStore((s) => s.toggleCompare);
   const clearCompare = useAppStore((s) => s.clearCompare);

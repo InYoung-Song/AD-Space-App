@@ -4,7 +4,7 @@ import maplibregl from 'maplibre-gl';
 import { useEffect, useRef } from 'react';
 import { View } from 'react-native';
 
-import { DEFAULT_CENTER, MAP_STYLE_URL, type MapViewProps } from './types';
+import { DEFAULT_CENTER, MAP_MIN_ZOOM, MAP_STYLE_URL, US_MAX_BOUNDS, type MapViewProps } from './types';
 
 function markerCss(color: string, selected: boolean): string {
   const size = selected ? 22 : 16;
@@ -39,6 +39,8 @@ export default function MapView({
       style: MAP_STYLE_URL,
       center: [center?.lng ?? DEFAULT_CENTER.lng, center?.lat ?? DEFAULT_CENTER.lat],
       zoom: center?.zoom ?? DEFAULT_CENTER.zoom,
+      maxBounds: US_MAX_BOUNDS,
+      minZoom: MAP_MIN_ZOOM,
     });
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
     map.on('click', () => onBgRef.current?.());

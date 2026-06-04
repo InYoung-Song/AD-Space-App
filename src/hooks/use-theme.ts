@@ -1,14 +1,19 @@
 /**
- * Learn more about light and dark modes:
- * https://docs.expo.dev/guides/color-schemes/
+ * Effective color scheme respects the user's manual choice (light/dark) and
+ * falls back to the system setting when set to "system".
  */
 
-import { Colors } from '@/constants/theme';
+import { Colors, type Theme } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useAppStore } from '@/lib/store';
 
-export function useTheme() {
-  const scheme = useColorScheme();
-  const theme = scheme === 'unspecified' ? 'light' : scheme;
+export function useEffectiveScheme(): 'light' | 'dark' {
+  const mode = useAppStore((s) => s.themeMode);
+  const system = useColorScheme();
+  if (mode === 'light' || mode === 'dark') return mode;
+  return system === 'dark' ? 'dark' : 'light';
+}
 
-  return Colors[theme];
+export function useTheme(): Theme {
+  return Colors[useEffectiveScheme()];
 }

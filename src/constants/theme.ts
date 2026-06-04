@@ -58,7 +58,8 @@ export const Colors = {
 } as const;
 
 export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
-export type Theme = typeof Colors.light;
+/** Widened so the light and dark palettes are interchangeable. */
+export type Theme = { [K in keyof typeof Colors.light]: string };
 
 export const Fonts = Platform.select({
   ios: {
@@ -110,3 +111,10 @@ export const FontSize = {
 } as const;
 
 export const MaxContentWidth = 900;
+
+/** Restrained, single-hue gradients (LinearGradient `colors`). */
+export const Gradients: Record<string, readonly [string, string, ...string[]]> = {
+  brand: ['#4B47A8', '#363270'],
+  violet: ['#5B57C4', '#454099'],
+  night: ['#1B1B2A', '#0B0C10'],
+};
