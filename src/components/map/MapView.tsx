@@ -19,10 +19,10 @@ function buildHtml(markers: MapMarker[], center: { lat: number; lng: number; zoo
     'function markerCss(col,sel){var s=sel?22:16;return "width:"+s+"px;height:"+s+"px;border-radius:50%;background:"+col+";border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35)"+(sel?(",0 0 0 4px "+col+"55"):"")+";transition:all .12s ease;";}' +
     'var map=new maplibregl.Map({container:"map",style:"' + MAP_STYLE_URL + '",center:[CENTER.lng,CENTER.lat],zoom:CENTER.zoom||3.4,maxBounds:' + JSON.stringify(US_MAX_BOUNDS) + ',minZoom:' + MAP_MIN_ZOOM + '});' +
     'map.addControl(new maplibregl.NavigationControl({showCompass:false}),"top-right");' +
-    'map.on("click",function(){post({type:"background"});});' +
-    'var objs={};' +
+    'map.on("click",function(e){post({type:"mappress",lat:e.lngLat.lat,lng:e.lngLat.lng});});' +
+    'var objs={};var originMarker=null;' +
+    'window.setOrigin=function(lat,lng){if(originMarker){originMarker.remove();originMarker=null;}if(lat!==null&&lat!==undefined){var oe=document.createElement("div");oe.style.cssText="width:18px;height:18px;border-radius:50%;background:#6D5DF6;border:3px solid #fff;box-shadow:0 0 0 6px rgba(109,93,246,0.25),0 2px 6px rgba(0,0,0,0.4);";originMarker=new maplibregl.Marker({element:oe}).setLngLat([lng,lat]).addTo(map);}};' +
     'MARKERS.forEach(function(m){var el=document.createElement("div");el.style.cssText=markerCss(m.color,false);el.addEventListener("click",function(e){e.stopPropagation();post({type:"select",id:m.id});});objs[m.id]=new maplibregl.Marker({element:el}).setLngLat([m.lng,m.lat]).addTo(map);});' +
-    'if(MARKERS.length>1){var b=new maplibregl.LngLatBounds();MARKERS.forEach(function(m){b.extend([m.lng,m.lat]);});map.fitBounds(b,{padding:60,maxZoom:12,duration:0});}else if(MARKERS.length===1){map.jumpTo({center:[MARKERS[0].lng,MARKERS[0].lat],zoom:12});}' +
     'window.setSelected=function(id){Object.keys(objs).forEach(function(k){var m=null;MARKERS.forEach(function(x){if(x.id===k)m=x;});if(m)objs[k].getElement().style.cssText=markerCss(m.color,k===id);});};' +
     'window.flyTo=function(lng,lat,zoom){map.flyTo({center:[lng,lat],zoom:zoom||11});};' +
     '</script></body></html>'
@@ -33,8 +33,9 @@ export default function MapView({
   markers,
   selectedId,
   center,
+  origin,
   onSelect,
-  onBackgroundPress,
+  onMapPress,
   style,
 }: MapViewProps) {
   const ref = useRef<WebView>(null);
@@ -54,11 +55,17 @@ export default function MapView({
     }
   }, [center?.lat, center?.lng, center?.zoom]);
 
+  useEffect(() => {
+    ref.current?.injectJavaScript(
+      `window.setOrigin && window.setOrigin(${origin ? `${origin.lat},${origin.lng}` : 'null,null'});true;`,
+    );
+  }, [origin?.lat, origin?.lng, html]);
+
   const handleMessage = (e: WebViewMessageEvent | NativeSyntheticEvent<{ data: string }>) => {
     try {
       const msg = JSON.parse(e.nativeEvent.data);
       if (msg.type === 'select' && msg.id) onSelect?.(msg.id);
-      else if (msg.type === 'background') onBackgroundPress?.();
+      else if (msg.type === 'mappress') onMapPress?.(msg.lat, msg.lng);
     } catch {
       // ignore malformed messages
     }

@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FilterBar } from '@/components/filter-bar';
@@ -24,40 +24,62 @@ import { formatImpressions } from '@/lib/format';
 import { useAppStore } from '@/lib/store';
 import { useUserData } from '@/lib/user-data';
 
+type Point = { lat: number; lng: number };
+
+function dist2(a: Point, b: Point): number {
+  const dy = a.lat - b.lat;
+  const dx = (a.lng - b.lng) * Math.cos((a.lat * Math.PI) / 180);
+  return dy * dy + dx * dx;
+}
+const miles = (d2: number) => Math.sqrt(d2) * 69;
+
 export default function MapScreen() {
   const t = useTheme();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const filters = useAppStore((s) => s.filters);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [origin, setOrigin] = useState<Point | null>(null);
   const [center, setCenter] = useState<{ lat: number; lng: number; zoom?: number } | undefined>();
   const [locating, setLocating] = useState(false);
 
   const listings = useMemo(() => filterListings(LISTINGS, filters), [filters]);
 
-  // Only render pins near the searched / located point so the map stays clean and fast.
-  const markers = useMemo(() => {
-    if (!center) return [];
-    const dLat = 0.7;
-    const dLng = 0.7 / Math.cos((center.lat * Math.PI) / 180);
+  // Ad spaces near the dropped/searched/located point, closest first.
+  const nearby = useMemo(() => {
+    if (!origin) return [];
+    const dLat = 0.6;
+    const dLng = 0.6 / Math.cos((origin.lat * Math.PI) / 180);
     return listings
-      .filter((l) => Math.abs(l.lat - center.lat) <= dLat && Math.abs(l.lng - center.lng) <= dLng)
-      .slice(0, 300)
-      .map((l) => ({ id: l.id, lat: l.lat, lng: l.lng, color: FORMATS[l.format].color }));
-  }, [center, listings]);
-  const showPins = markers.length > 0;
+      .filter((l) => Math.abs(l.lat - origin.lat) <= dLat && Math.abs(l.lng - origin.lng) <= dLng)
+      .map((l) => ({ l, d: dist2(origin, l) }))
+      .sort((a, b) => a.d - b.d)
+      .slice(0, 80);
+  }, [origin, listings]);
+
+  const markers = useMemo(
+    () => nearby.map(({ l }) => ({ id: l.id, lat: l.lat, lng: l.lng, color: FORMATS[l.format].color })),
+    [nearby],
+  );
 
   const selected = selectedId ? getListingById(selectedId) : undefined;
   useEffect(() => {
     if (selectedId && !listings.some((l) => l.id === selectedId)) setSelectedId(null);
   }, [listings, selectedId]);
 
+  function dropAt(lat: number, lng: number, zoom = 9) {
+    setSelectedId(null);
+    setOrigin({ lat, lng });
+    setCenter({ lat, lng, zoom });
+  }
+
   function useMyLocation() {
     if (typeof navigator !== 'undefined' && navigator.geolocation) {
       setLocating(true);
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          setCenter({ lat: pos.coords.latitude, lng: pos.coords.longitude, zoom: 11 });
+          dropAt(pos.coords.latitude, pos.coords.longitude, 11);
           setLocating(false);
         },
         () => setLocating(false),
@@ -73,21 +95,17 @@ export default function MapScreen() {
         markers={markers}
         selectedId={selectedId}
         center={center}
+        origin={origin}
         onSelect={setSelectedId}
-        onBackgroundPress={() => setSelectedId(null)}
+        onMapPress={(lat, lng) => dropAt(lat, lng)}
       />
 
       <View style={[styles.top, { paddingTop: insets.top + Spacing.sm }]} pointerEvents="box-none">
         <Card style={styles.header}>
-          <LocationSearch
-            onSelect={(r) => {
-              setSelectedId(null);
-              setCenter({ lat: r.lat, lng: r.lng, zoom: 12 });
-            }}
-          />
+          <LocationSearch onSelect={(r) => dropAt(r.lat, r.lng, 11)} />
           <View style={styles.headerRow}>
-            <Txt variant="small" muted>
-              {showPins ? `${markers.length} space${markers.length === 1 ? '' : 's'} nearby` : 'Search or use your location'}
+            <Txt variant="small" muted style={{ flex: 1 }}>
+              {origin ? `${nearby.length} space${nearby.length === 1 ? '' : 's'} near your pin` : 'Tap the map to drop a pin'}
             </Txt>
             <Pressable
               onPress={useMyLocation}
@@ -105,21 +123,67 @@ export default function MapScreen() {
         </Card>
       </View>
 
-      {selected ? (
-        <View style={[styles.bottom, { paddingBottom: insets.bottom + Spacing.sm }]} pointerEvents="box-none">
+      <View style={[styles.bottom, { paddingBottom: insets.bottom + Spacing.sm }]} pointerEvents="box-none">
+        {selected ? (
           <MapPreview listing={selected} onClose={() => setSelectedId(null)} />
-        </View>
-      ) : !showPins ? (
-        <View style={[styles.bottom, { paddingBottom: insets.bottom + Spacing.sm }]} pointerEvents="box-none">
-          <Card padded style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <Ionicons name="search-outline" size={18} color={t.textMuted} />
+        ) : !origin ? (
+          <Card padded style={styles.hint}>
+            <Ionicons name="hand-left-outline" size={18} color={t.accent} />
             <Txt variant="small" muted style={{ flex: 1 }}>
-              Search a city, tap “Near me”, or pick a format to see billboard spaces on the map.
+              Tap anywhere on the map to drop a pin and see nearby ad spaces — or search a place / use
+              “Near me”.
             </Txt>
           </Card>
-        </View>
-      ) : null}
+        ) : nearby.length === 0 ? (
+          <Card padded style={styles.hint}>
+            <Ionicons name="alert-circle-outline" size={18} color={t.textMuted} />
+            <Txt variant="small" muted style={{ flex: 1 }}>
+              No mapped ad spaces within ~40 miles of your pin. Try a spot closer to a city.
+            </Txt>
+          </Card>
+        ) : (
+          <View style={{ gap: 8 }}>
+            <Txt variant="label" color="#fff" style={[styles.nearbyLabel, { backgroundColor: t.accent }]}>
+              {nearby.length} NEARBY · CLOSEST FIRST
+            </Txt>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.nearbyRow}>
+              {nearby.slice(0, 24).map(({ l, d }) => (
+                <NearbyCard
+                  key={l.id}
+                  listing={l}
+                  distance={miles(d)}
+                  onPress={() => router.push({ pathname: '/listing/[id]', params: { id: l.id } })}
+                />
+              ))}
+            </ScrollView>
+          </View>
+        )}
+      </View>
     </View>
+  );
+}
+
+function NearbyCard({ listing, distance, onPress }: { listing: Listing; distance: number; onPress: () => void }) {
+  const t = useTheme();
+  const monthly = quickMonthly(listing);
+  return (
+    <Pressable
+      onPress={onPress}
+      style={(s) => [
+        styles.nearbyCard,
+        { backgroundColor: t.surface, borderColor: t.border, transform: [{ translateY: (s as { hovered?: boolean }).hovered ? -3 : 0 }] },
+      ]}>
+      <LocationImage lat={listing.lat} lng={listing.lng} format={listing.format} height={72} radius={Radius.md} />
+      <View style={{ padding: 8, gap: 4 }}>
+        <Txt variant="small" weight="semibold" numberOfLines={1}>
+          {listing.title}
+        </Txt>
+        <Txt variant="label" muted numberOfLines={1}>
+          {FORMATS[listing.format].short} · {distance < 1 ? '<1' : Math.round(distance)} mi
+        </Txt>
+        <PricePill low={monthly * 0.85} high={monthly * 1.15} compact />
+      </View>
+    </Pressable>
   );
 }
 
@@ -183,7 +247,7 @@ function MapPreview({ listing, onClose }: { listing: Listing; onClose: () => voi
 const styles = StyleSheet.create({
   top: { position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: Spacing.md },
   header: { padding: 12, gap: 10 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   locate: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -194,6 +258,21 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
   },
   bottom: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: Spacing.md },
+  hint: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  nearbyLabel: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: Radius.pill,
+    overflow: 'hidden',
+  },
+  nearbyRow: { gap: 10, paddingBottom: 2 },
+  nearbyCard: {
+    width: 168,
+    borderRadius: Radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: 'hidden',
+  },
   preview: { padding: 12, gap: 12 },
   previewRow: { flexDirection: 'row', gap: 12 },
   close: { padding: 2, alignSelf: 'flex-start' },

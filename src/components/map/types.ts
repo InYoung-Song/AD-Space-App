@@ -11,8 +11,11 @@ export interface MapViewProps {
   markers: MapMarker[];
   selectedId?: string | null;
   center?: { lat: number; lng: number; zoom?: number };
+  /** A dropped/searched/located point, rendered as a distinct marker. */
+  origin?: { lat: number; lng: number } | null;
   onSelect?: (id: string) => void;
-  onBackgroundPress?: () => void;
+  /** Fired when the user taps empty map — reports the tapped coordinates. */
+  onMapPress?: (lat: number, lng: number) => void;
   style?: StyleProp<ViewStyle>;
 }
 

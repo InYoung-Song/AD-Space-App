@@ -20,17 +20,19 @@ export default function MapView({
   markers,
   selectedId,
   center,
+  origin,
   onSelect,
-  onBackgroundPress,
+  onMapPress,
   style,
 }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markerObjs = useRef<Map<string, maplibregl.Marker>>(new Map());
+  const originMarker = useRef<maplibregl.Marker | null>(null);
   const onSelectRef = useRef(onSelect);
-  const onBgRef = useRef(onBackgroundPress);
+  const onMapPressRef = useRef(onMapPress);
   onSelectRef.current = onSelect;
-  onBgRef.current = onBackgroundPress;
+  onMapPressRef.current = onMapPress;
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -43,7 +45,7 @@ export default function MapView({
       minZoom: MAP_MIN_ZOOM,
     });
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
-    map.on('click', () => onBgRef.current?.());
+    map.on('click', (e) => onMapPressRef.current?.(e.lngLat.lat, e.lngLat.lng));
     mapRef.current = map;
     return () => {
       map.remove();
@@ -82,14 +84,7 @@ export default function MapView({
         mk.setLngLat([m.lng, m.lat]);
       }
     }
-
-    if (markers.length > 1) {
-      const b = new maplibregl.LngLatBounds();
-      markers.forEach((m) => b.extend([m.lng, m.lat]));
-      map.fitBounds(b, { padding: 70, maxZoom: 12, duration: 350 });
-    } else if (markers.length === 1) {
-      map.flyTo({ center: [markers[0].lng, markers[0].lat], zoom: 12, duration: 350 });
-    }
+    // Positioning is driven by `center` (search / locate / drop), not auto-fit.
   }, [markers]);
 
   // Reflect selection in marker styling.
@@ -110,6 +105,25 @@ export default function MapView({
       });
     }
   }, [center?.lat, center?.lng, center?.zoom]);
+
+  // Distinct marker for the dropped / searched / located point.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (!origin) {
+      originMarker.current?.remove();
+      originMarker.current = null;
+      return;
+    }
+    if (!originMarker.current) {
+      const el = document.createElement('div');
+      el.style.cssText =
+        'width:18px;height:18px;border-radius:50%;background:#6D5DF6;border:3px solid #fff;box-shadow:0 0 0 6px rgba(109,93,246,0.25),0 2px 6px rgba(0,0,0,0.4);';
+      originMarker.current = new maplibregl.Marker({ element: el }).setLngLat([origin.lng, origin.lat]).addTo(map);
+    } else {
+      originMarker.current.setLngLat([origin.lng, origin.lat]);
+    }
+  }, [origin?.lat, origin?.lng]);
 
   return (
     <View style={[{ overflow: 'hidden' }, style]}>
