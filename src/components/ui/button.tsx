@@ -49,17 +49,21 @@ export function Button({
     <Pressable
       onPress={onPress}
       disabled={disabled || loading}
-      style={({ pressed }) => [
-        styles.base,
-        {
-          height: heights[size],
-          backgroundColor: bg,
-          borderColor,
-          borderWidth: variant === 'ghost' ? StyleSheet.hairlineWidth : 0,
-          opacity: disabled ? 0.5 : pressed ? 0.85 : 1,
-        },
-        fullWidth && { alignSelf: 'stretch' },
-      ]}>
+      style={(state) => {
+        const hovered = (state as { hovered?: boolean }).hovered;
+        return [
+          styles.base,
+          {
+            height: heights[size],
+            backgroundColor: bg,
+            borderColor,
+            borderWidth: variant === 'ghost' ? StyleSheet.hairlineWidth : 0,
+            opacity: disabled ? 0.5 : state.pressed ? 0.85 : hovered ? 0.92 : 1,
+            transform: [{ scale: hovered && !state.pressed ? 1.015 : 1 }],
+          },
+          fullWidth && { alignSelf: 'stretch' },
+        ];
+      }}>
       {loading ? (
         <ActivityIndicator color={fg} />
       ) : (

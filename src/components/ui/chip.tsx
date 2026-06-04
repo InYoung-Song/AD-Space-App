@@ -20,14 +20,18 @@ export function Chip({ label, selected, onPress, icon, tint }: Props) {
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.chip,
-        {
-          backgroundColor: selected ? accent : t.surface,
-          borderColor: selected ? accent : t.border,
-          opacity: pressed ? 0.85 : 1,
-        },
-      ]}>
+      style={(state) => {
+        const hovered = (state as { hovered?: boolean }).hovered;
+        return [
+          styles.chip,
+          {
+            backgroundColor: selected ? accent : hovered ? t.surfaceSelected : t.surface,
+            borderColor: selected ? accent : hovered ? accent : t.border,
+            opacity: state.pressed ? 0.85 : 1,
+            transform: [{ scale: hovered && !state.pressed ? 1.03 : 1 }],
+          },
+        ];
+      }}>
       {icon ? (
         <Ionicons name={icon} size={15} color={selected ? t.accentText : t.textSecondary} />
       ) : null}

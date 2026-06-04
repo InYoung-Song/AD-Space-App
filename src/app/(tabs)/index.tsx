@@ -1,163 +1,154 @@
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useMemo } from 'react';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Disclaimer } from '@/components/disclaimer';
-import { FilterBar } from '@/components/filter-bar';
-import { LocationImage } from '@/components/location-image';
-import { LocationSearch } from '@/components/location-search';
-import MapView from '@/components/map/MapView';
-import { PricePill } from '@/components/price-pill';
+import { ListingCard } from '@/components/listing-card';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Txt } from '@/components/ui/text';
-import { Radius, Spacing } from '@/constants/theme';
-import { FORMATS } from '@/data/formats';
-import { getListingById, LISTINGS } from '@/data/listings';
-import { MARKETS } from '@/data/markets';
-import type { Listing } from '@/data/types';
+import { withAlpha } from '@/components/ui/badge';
+import { Gradients, MaxContentWidth, Radius, Spacing } from '@/constants/theme';
+import { LISTINGS } from '@/data/listings';
 import { useTheme } from '@/hooks/use-theme';
-import { quickMonthly } from '@/lib/estimator';
-import { filterListings } from '@/lib/filtering';
-import { formatImpressions } from '@/lib/format';
-import { useAppStore } from '@/lib/store';
-import { useUserData } from '@/lib/user-data';
 
-export default function MapScreen() {
+const STEPS: { icon: keyof typeof Ionicons.glyphMap; title: string; body: string }[] = [
+  { icon: 'location-outline', title: 'Find spaces', body: 'Search any US city or use your location to see real billboard spots.' },
+  { icon: 'calculator-outline', title: 'Estimate cost', body: 'See reach and a transparent price range for each space — no sales call.' },
+  { icon: 'wallet-outline', title: 'Plan a budget', body: 'Enter a budget and get the most cost-effective mix of spaces.' },
+];
+
+export default function HomeScreen() {
   const t = useTheme();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
-  const filters = useAppStore((s) => s.filters);
 
-  const listings = useMemo(() => filterListings(LISTINGS, filters), [filters]);
-  const markers = useMemo(
-    () => listings.map((l) => ({ id: l.id, lat: l.lat, lng: l.lng, color: FORMATS[l.format].color })),
-    [listings],
-  );
-
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [center, setCenter] = useState<{ lat: number; lng: number; zoom?: number } | undefined>();
-  const selected = selectedId ? getListingById(selectedId) : undefined;
-
-  useEffect(() => {
-    if (selectedId && !listings.some((l) => l.id === selectedId)) setSelectedId(null);
-  }, [listings, selectedId]);
+  const stats = useMemo(() => {
+    const states = new Set(LISTINGS.map((l) => l.state)).size;
+    return { count: LISTINGS.length, states };
+  }, []);
+  const featured = useMemo(() => LISTINGS.slice(0, 4), []);
 
   return (
-    <View style={{ flex: 1, backgroundColor: t.background }}>
-      <MapView
-        style={StyleSheet.absoluteFill}
-        markers={markers}
-        selectedId={selectedId}
-        center={center}
-        onSelect={setSelectedId}
-        onBackgroundPress={() => setSelectedId(null)}
-      />
-
-      <View style={[styles.top, { paddingTop: insets.top + Spacing.sm }]} pointerEvents="box-none">
-        <Card style={styles.header}>
-          <LocationSearch
-            onSelect={(r) => {
-              setSelectedId(null);
-              setCenter({ lat: r.lat, lng: r.lng, zoom: 12 });
-            }}
-          />
-          <View style={styles.headerRow}>
-            <Txt variant="small" muted>
-              {listings.length} space{listings.length === 1 ? '' : 's'} in the US
+    <ScrollView
+      style={{ flex: 1, backgroundColor: t.background }}
+      contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}>
+      <LinearGradient
+        colors={Gradients.brand}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.hero, { paddingTop: insets.top + 36 }]}>
+        <View style={styles.heroInner}>
+          <View style={styles.logoRow}>
+            <View style={styles.logo}>
+              <Ionicons name="megaphone" size={20} color="#fff" />
+            </View>
+            <Txt weight="bold" color="#fff" style={{ fontSize: 18 }}>
+              AD Space
             </Txt>
           </View>
-          <FilterBar />
-        </Card>
-      </View>
+          <Txt variant="display" color="#fff" style={{ marginTop: 18 }}>
+            Find where your ad can go.
+          </Txt>
+          <Txt variant="body" color="rgba(255,255,255,0.88)" style={{ marginTop: 8 }}>
+            Browse real out-of-home advertising spaces across the US and get an honest cost estimate —
+            no salesperson, no commitment.
+          </Txt>
+          <View style={styles.ctaRow}>
+            <Button title="Browse spaces" icon="grid-outline" onPress={() => router.push('/browse')} />
+            <Button title="Open map" icon="map-outline" variant="secondary" onPress={() => router.push('/map')} />
+          </View>
+        </View>
+      </LinearGradient>
 
-      {selected ? (
-        <View style={[styles.previewWrap, { paddingBottom: insets.bottom + Spacing.sm }]} pointerEvents="box-none">
-          <MapPreview listing={selected} onClose={() => setSelectedId(null)} />
+      <View style={styles.body}>
+        <View style={styles.statsRow}>
+          <Stat value={`${stats.count}`} label="Spaces" t={t} />
+          <Stat value={`${stats.states}`} label="States + DC" t={t} />
+          <Stat value="Free" label="To browse" t={t} />
         </View>
-      ) : (
-        <View style={[styles.hintWrap, { paddingBottom: insets.bottom + Spacing.sm }]} pointerEvents="none">
-          <Disclaimer />
+
+        <View style={{ gap: 10 }}>
+          {STEPS.map((s) => (
+            <Card key={s.title} padded style={styles.step}>
+              <View style={[styles.stepIcon, { backgroundColor: withAlpha(t.accent, 0.14) }]}>
+                <Ionicons name={s.icon} size={20} color={t.accent} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Txt variant="subtitle">{s.title}</Txt>
+                <Txt variant="small" muted>
+                  {s.body}
+                </Txt>
+              </View>
+            </Card>
+          ))}
         </View>
-      )}
+
+        <View style={styles.sectionHead}>
+          <Txt variant="heading">Featured locations</Txt>
+          <Txt variant="small" weight="semibold" color={t.accent} onPress={() => router.push('/browse')}>
+            See all
+          </Txt>
+        </View>
+        <View style={{ gap: Spacing.md }}>
+          {featured.map((l) => (
+            <ListingCard key={l.id} listing={l} />
+          ))}
+        </View>
+
+        <Disclaimer />
+      </View>
+    </ScrollView>
+  );
+}
+
+function Stat({ value, label, t }: { value: string; label: string; t: ReturnType<typeof useTheme> }) {
+  return (
+    <View style={[styles.stat, { backgroundColor: t.surface, borderColor: t.border }]}>
+      <Txt variant="title" color={t.accent}>
+        {value}
+      </Txt>
+      <Txt variant="label" muted>
+        {label.toUpperCase()}
+      </Txt>
     </View>
   );
 }
 
-function MapPreview({ listing, onClose }: { listing: Listing; onClose: () => void }) {
-  const t = useTheme();
-  const router = useRouter();
-  const fmt = FORMATS[listing.format];
-  const monthly = quickMonthly(listing);
-
-  const { isFavorite, toggleFavorite } = useUserData();
-  const fav = isFavorite(listing.id);
-  const inCompare = useAppStore((s) => s.compareIds.includes(listing.id));
-  const toggleCompare = useAppStore((s) => s.toggleCompare);
-
-  return (
-    <Card style={styles.preview}>
-      <View style={styles.previewRow}>
-        <LocationImage lat={listing.lat} lng={listing.lng} format={listing.format} height={78} radius={Radius.md} style={{ width: 78 }} />
-        <View style={{ flex: 1, gap: 3 }}>
-          <Txt variant="subtitle" numberOfLines={1}>
-            {listing.title}
-          </Txt>
-          <Txt variant="small" muted numberOfLines={1}>
-            {fmt.label} · {listing.city}, {listing.state}
-          </Txt>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <PricePill low={monthly * 0.85} high={monthly * 1.15} compact />
-            <Txt variant="small" muted>
-              {formatImpressions(listing.dec)}/day
-            </Txt>
-          </View>
-        </View>
-        <Pressable onPress={onClose} hitSlop={10} style={styles.close}>
-          <Ionicons name="close" size={18} color={t.textMuted} />
-        </Pressable>
-      </View>
-
-      <View style={styles.previewActions}>
-        <View style={{ flex: 1 }}>
-          <Button
-            title="View details"
-            size="sm"
-            icon="arrow-forward"
-            onPress={() => router.push({ pathname: '/listing/[id]', params: { id: listing.id } })}
-            fullWidth
-          />
-        </View>
-        <Pressable
-          onPress={() => toggleCompare(listing.id)}
-          style={[styles.iconBtn, { borderColor: inCompare ? t.accent : t.border, backgroundColor: inCompare ? t.accentSoft : 'transparent' }]}>
-          <Ionicons name="git-compare-outline" size={18} color={inCompare ? t.accent : t.textSecondary} />
-        </Pressable>
-        <Pressable onPress={() => toggleFavorite(listing.id)} style={[styles.iconBtn, { borderColor: t.border }]}>
-          <Ionicons name={fav ? 'heart' : 'heart-outline'} size={18} color={fav ? t.danger : t.textSecondary} />
-        </Pressable>
-      </View>
-    </Card>
-  );
-}
-
 const styles = StyleSheet.create({
-  top: { position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: Spacing.md },
-  header: { padding: 12, gap: 10 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  previewWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: Spacing.md },
-  hintWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: Spacing.md },
-  preview: { padding: 12, gap: 12 },
-  previewRow: { flexDirection: 'row', gap: 12 },
-  close: { padding: 2, alignSelf: 'flex-start' },
-  previewActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  iconBtn: {
-    width: 40,
-    height: 38,
-    borderRadius: Radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
+  hero: { paddingHorizontal: Spacing.lg, paddingBottom: 40 },
+  heroInner: { width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center' },
+  logoRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  logo: {
+    width: 36,
+    height: 36,
+    borderRadius: 11,
+    backgroundColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
   },
+  ctaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 22 },
+  body: {
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.lg,
+    gap: Spacing.lg,
+    width: '100%',
+    maxWidth: MaxContentWidth,
+    alignSelf: 'center',
+  },
+  statsRow: { flexDirection: 'row', gap: 10 },
+  stat: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 2,
+    paddingVertical: 16,
+    borderRadius: Radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  step: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  stepIcon: { width: 42, height: 42, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  sectionHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
 });

@@ -29,7 +29,7 @@ export function ListingCard({ listing }: { listing: Listing }) {
     <Card flat style={[styles.card, cardShadow]}>
       <Pressable
         onPress={() => router.push({ pathname: '/listing/[id]', params: { id: listing.id } })}
-        style={styles.clip}>
+        style={(s) => [styles.clip, { transform: [{ translateY: (s as { hovered?: boolean }).hovered ? -3 : 0 }] }]}>
         <View>
           <LocationImage lat={listing.lat} lng={listing.lng} format={listing.format} height={138} />
           <View style={[styles.imgBadge, { backgroundColor: withAlpha('#000000', 0.42) }]}>
