@@ -1,9 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
+import { useEffect, useState } from 'react';
 import { StyleSheet, View, type ViewStyle } from 'react-native';
 
 import { FORMATS } from '@/data/formats';
 import type { AdFormat } from '@/data/types';
+import { FormatVisual } from './format-visual';
+import { Txt } from './ui/text';
 import { useTheme } from '@/hooks/use-theme';
 import { withAlpha } from './ui/badge';
 
@@ -22,25 +25,84 @@ interface Props {
   lat: number;
   lng: number;
   format?: AdFormat;
+  imageUri?: string;
   height?: number;
   radius?: number;
   badge?: boolean;
   style?: ViewStyle;
 }
 
-export function LocationImage({ lat, lng, format, height = 150, radius = 0, badge = false, style }: Props) {
+export function LocationImage({
+  lat,
+  lng,
+  format,
+  imageUri,
+  height = 150,
+  radius = 0,
+  badge = false,
+  style,
+}: Props) {
   const t = useTheme();
   const f = format ? FORMATS[format] : undefined;
+  const sourceUri = imageUri ?? aerialUrl(lat, lng);
+
+  const [failed, setFailed] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  // Reset state if the image we're pointing at changes (e.g. recycled card).
+  useEffect(() => {
+    setFailed(false);
+    setLoaded(false);
+  }, [sourceUri]);
+
+  // If nothing loads within a few seconds, fall back rather than show a blank box.
+  useEffect(() => {
+    if (loaded || failed) return;
+    const id = setTimeout(() => setFailed(true), 6000);
+    return () => clearTimeout(id);
+  }, [sourceUri, loaded, failed]);
+
+  // Graceful fallback: the format's neutral cover (or a plain surface) — never a
+  // blank box with overlay text floating on nothing.
+  if (failed) {
+    if (format) {
+      return (
+        <FormatVisual
+          format={format}
+          height={height}
+          radius={radius}
+          iconSize={Math.round(Math.min(44, Math.max(18, height * 0.36)))}
+          style={style}
+        />
+      );
+    }
+    return <View style={[{ height, borderRadius: radius, backgroundColor: t.surfaceSelected }, style]} />;
+  }
+
   return (
     <View style={[{ height, borderRadius: radius, backgroundColor: t.surfaceSelected, overflow: 'hidden' }, style]}>
       <Image
-        source={{ uri: aerialUrl(lat, lng) }}
+        source={{ uri: sourceUri }}
         style={StyleSheet.absoluteFill}
         contentFit="cover"
         transition={180}
+        recyclingKey={sourceUri}
+        accessibilityLabel={imageUri ? 'Listing image' : 'Aerial view of the ad space location'}
+        onError={() => setFailed(true)}
+        onLoad={() => setLoaded(true)}
       />
+      <View style={styles.overlay} pointerEvents="none">
+        <Txt variant="label" color="#fff" style={styles.overlayText}>
+          {imageUri ? 'Actual listing image' : 'Location preview'}
+        </Txt>
+        {!imageUri ? (
+          <Txt variant="small" color="#fff" style={styles.overlayNote}>
+            This map view shows where the ad space is located, not the ad face.
+          </Txt>
+        ) : null}
+      </View>
       {badge && f ? (
-        <View style={[styles.badge, { backgroundColor: withAlpha('#000000', 0.5) }]}>
+        <View style={[styles.badge, { backgroundColor: withAlpha('#000000', 0.5) }]}> 
           <Ionicons name={f.icon} size={13} color="#fff" />
         </View>
       ) : null}
@@ -58,5 +120,19 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  overlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    padding: 10,
+    backgroundColor: withAlpha('#000000', 0.28),
+  },
+  overlayText: {
+    marginBottom: 2,
+  },
+  overlayNote: {
+    opacity: 0.85,
   },
 });

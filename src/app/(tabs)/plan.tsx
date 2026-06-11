@@ -40,6 +40,7 @@ export default function PlanScreen() {
   const [budgetText, setBudgetText] = useState('10000');
   const [weeks, setWeeks] = useState(4);
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const budget = Number(budgetText.replace(/[^0-9.]/g, '')) || 0;
 
@@ -53,7 +54,8 @@ export default function PlanScreen() {
   useEffect(() => setSaved(false), [budget, weeks, base]);
 
   async function handleSave() {
-    await savePlan({
+    setSaving(true);
+    const ok = await savePlan({
       name: `${formatCurrency(budget, true)} · ${weeks} wks`,
       budget,
       weeks,
@@ -61,7 +63,9 @@ export default function PlanScreen() {
       totalImpressions: plan.totalImpressions,
       items: plan.items.map((s) => ({ listingId: s.listing.id, cost: s.cost, impressions: s.impressions })),
     });
-    setSaved(true);
+    setSaving(false);
+    // On failure savePlan surfaces a toast; leave the button so it can be retried.
+    if (ok) setSaved(true);
   }
 
   return (
@@ -147,11 +151,12 @@ export default function PlanScreen() {
           </View>
 
           <Button
-            title={saved ? 'Saved to your account' : 'Save this plan'}
+            title={saved ? 'Saved to your account' : saving ? 'Saving…' : 'Save this plan'}
             icon={saved ? 'checkmark' : 'bookmark-outline'}
             variant={saved ? 'secondary' : 'primary'}
             onPress={handleSave}
-            disabled={saved}
+            disabled={saved || saving}
+            loading={saving}
             fullWidth
           />
         </Card>

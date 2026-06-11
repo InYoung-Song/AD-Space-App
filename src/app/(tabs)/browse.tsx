@@ -5,13 +5,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FilterBar } from '@/components/filter-bar';
 import { ListingCard } from '@/components/listing-card';
+import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
 import { Txt } from '@/components/ui/text';
 import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { LISTINGS } from '@/data/listings';
 import { useTheme } from '@/hooks/use-theme';
 import { quickMonthly } from '@/lib/estimator';
-import { filterListings } from '@/lib/filtering';
+import { activeFilterCount, filterListings } from '@/lib/filtering';
 import { useAppStore } from '@/lib/store';
 
 type SortKey = 'reach' | 'priceAsc' | 'priceDesc';
@@ -24,6 +25,8 @@ export default function BrowseScreen() {
 
   const filters = useAppStore((s) => s.filters);
   const setFilters = useAppStore((s) => s.setFilters);
+  const resetFilters = useAppStore((s) => s.resetFilters);
+  const filterCount = activeFilterCount(filters);
 
   const [sort, setSort] = useState<SortKey>('reach');
 
@@ -92,8 +95,13 @@ export default function BrowseScreen() {
               No spaces match
             </Txt>
             <Txt variant="small" muted center>
-              Try clearing a filter or searching a different city.
+              {filterCount > 0
+                ? `${filterCount} filter${filterCount === 1 ? '' : 's'} active — clearing them brings spaces back.`
+                : 'Try searching a different city.'}
             </Txt>
+            {filterCount > 0 ? (
+              <Button title="Clear filters" size="sm" variant="secondary" icon="close" onPress={resetFilters} />
+            ) : null}
           </View>
         }
       />

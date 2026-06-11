@@ -29,16 +29,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!supabase) {
+    const client = supabase;
+    if (!client) {
       setLoading(false);
       return;
     }
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
+    let active = true;
+    // Never spin forever: if the session can't be fetched within a few seconds,
+    // resolve loading (treated as signed-out → lands on the sign-in screen).
+    const timer = setTimeout(() => {
+      if (active) setLoading(false);
+    }, 8000);
+    const finish = (next: Session | null) => {
+      if (!active) return;
+      setSession(next);
       setLoading(false);
+      clearTimeout(timer);
+    };
+    client.auth
+      .getSession()
+      .then(({ data }) => finish(data.session))
+      .catch(() => finish(null));
+    const { data: sub } = client.auth.onAuthStateChange((_event, next) => {
+      if (active) setSession(next);
     });
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => setSession(next));
-    return () => sub.subscription.unsubscribe();
+    return () => {
+      active = false;
+      clearTimeout(timer);
+      sub.subscription.unsubscribe();
+    };
   }, []);
 
   async function signInWithEmail(email: string, password: string) {

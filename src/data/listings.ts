@@ -308,7 +308,7 @@ const CURATED_LISTINGS: Listing[] = [
   },
 ];
 
-/** Real OSM billboards (464 across 46 states + DC) plus the curated variety. */
+/** Real OSM advertising structures (~2,800 across all 50 states + DC) plus the curated variety. */
 export const LISTINGS: Listing[] = [...CURATED_LISTINGS, ...GENERATED_LISTINGS];
 
 export function getListingById(id: string): Listing | undefined {

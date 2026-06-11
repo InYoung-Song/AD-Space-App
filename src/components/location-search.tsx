@@ -14,6 +14,8 @@ export function LocationSearch({ onSelect }: { onSelect: (r: GeoResult) => void 
   const [results, setResults] = useState<GeoResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [retryNonce, setRetryNonce] = useState(0);
   const ctrl = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -21,20 +23,32 @@ export function LocationSearch({ onSelect }: { onSelect: (r: GeoResult) => void 
     if (q.length < 3) {
       setResults([]);
       setLoading(false);
+      setFailed(false);
       return;
     }
     setLoading(true);
+    setFailed(false);
     const id = setTimeout(async () => {
       ctrl.current?.abort();
       const controller = new AbortController();
       ctrl.current = controller;
-      const r = await geocode(q, controller.signal);
-      setResults(r);
-      setLoading(false);
-      setOpen(true);
+      try {
+        const r = await geocode(q, controller.signal);
+        if (controller.signal.aborted) return;
+        setResults(r);
+        setOpen(true);
+      } catch {
+        // Ignore aborts from a newer keystroke; surface real failures as retryable.
+        if (controller.signal.aborted) return;
+        setResults([]);
+        setFailed(true);
+        setOpen(true);
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
     }, 350);
     return () => clearTimeout(id);
-  }, [query]);
+  }, [query, retryNonce]);
 
   function pick(r: GeoResult) {
     onSelect(r);
@@ -70,12 +84,22 @@ export function LocationSearch({ onSelect }: { onSelect: (r: GeoResult) => void 
               setQuery('');
               setResults([]);
               setOpen(false);
+              setFailed(false);
             }}
           />
         ) : null}
       </View>
 
-      {open && results.length > 0 ? (
+      {open && failed ? (
+        <View style={[styles.dropdown, { backgroundColor: t.surface, borderColor: t.border }, cardShadow]}>
+          <Pressable onPress={() => setRetryNonce((n) => n + 1)} style={styles.item}>
+            <Ionicons name="refresh" size={16} color={t.danger} />
+            <Txt variant="small" color={t.danger} style={{ flex: 1 }}>
+              Couldn’t search just now — tap to retry.
+            </Txt>
+          </Pressable>
+        </View>
+      ) : open && results.length > 0 ? (
         <View style={[styles.dropdown, { backgroundColor: t.surface, borderColor: t.border }, cardShadow]}>
           {results.map((r, i) => (
             <Pressable
