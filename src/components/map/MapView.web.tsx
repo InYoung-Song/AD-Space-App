@@ -1,9 +1,12 @@
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 import maplibregl from 'maplibre-gl';
-import { useEffect, useRef } from 'react';
-import { View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
+import { Radius, Spacing } from '@/constants/theme';
+import { Txt } from '@/components/ui/text';
+import { useTheme } from '@/hooks/use-theme';
 import { DEFAULT_CENTER, MAP_MIN_ZOOM, MAP_STYLE_URL, US_MAX_BOUNDS, type MapViewProps } from './types';
 
 function markerCss(color: string, selected: boolean): string {
@@ -23,42 +26,84 @@ export default function MapView({
   origin,
   onSelect,
   onMapPress,
+  onRegionChange,
   style,
 }: MapViewProps) {
+  const t = useTheme();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markerObjs = useRef<Map<string, maplibregl.Marker>>(new Map());
   const originMarker = useRef<maplibregl.Marker | null>(null);
   const onSelectRef = useRef(onSelect);
   const onMapPressRef = useRef(onMapPress);
+  const onRegionChangeRef = useRef(onRegionChange);
   onSelectRef.current = onSelect;
   onMapPressRef.current = onMapPress;
+  onRegionChangeRef.current = onRegionChange;
+
+  // 'loading' until the style loads, 'error' if WebGL/tiles fail to come up.
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
-    if (!containerRef.current || mapRef.current) return;
-    const map = new maplibregl.Map({
-      container: containerRef.current,
-      style: MAP_STYLE_URL,
-      center: [center?.lng ?? DEFAULT_CENTER.lng, center?.lat ?? DEFAULT_CENTER.lat],
-      zoom: center?.zoom ?? DEFAULT_CENTER.zoom,
-      maxBounds: US_MAX_BOUNDS,
-      minZoom: MAP_MIN_ZOOM,
-    });
+    if (!containerRef.current) return;
+    setStatus('loading');
+
+    let map: maplibregl.Map;
+    try {
+      map = new maplibregl.Map({
+        container: containerRef.current,
+        style: MAP_STYLE_URL,
+        center: [center?.lng ?? DEFAULT_CENTER.lng, center?.lat ?? DEFAULT_CENTER.lat],
+        zoom: center?.zoom ?? DEFAULT_CENTER.zoom,
+        maxBounds: US_MAX_BOUNDS,
+        minZoom: MAP_MIN_ZOOM,
+      });
+    } catch {
+      // Thrown when WebGL is unavailable (old hardware / disabled in the browser).
+      setStatus('error');
+      return;
+    }
+    mapRef.current = map;
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
     map.on('click', (e) => onMapPressRef.current?.(e.lngLat.lat, e.lngLat.lng));
-    mapRef.current = map;
+
+    const emitRegion = () => {
+      const b = map.getBounds();
+      onRegionChangeRef.current?.({ west: b.getWest(), south: b.getSouth(), east: b.getEast(), north: b.getNorth() });
+    };
+    map.on('moveend', emitRegion);
+
+    // Treat a failure *before the first load* as fatal; ignore transient tile
+    // errors afterwards so a single 404 tile never blanks the whole map.
+    let loaded = false;
+    const failTimer = setTimeout(() => {
+      if (!loaded) setStatus('error');
+    }, 12000);
+    map.on('load', () => {
+      loaded = true;
+      clearTimeout(failTimer);
+      setStatus('ready');
+      emitRegion();
+    });
+    map.on('error', () => {
+      if (!loaded) setStatus('error');
+    });
+
     return () => {
+      clearTimeout(failTimer);
       map.remove();
       mapRef.current = null;
       markerObjs.current.clear();
+      originMarker.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [reloadKey]);
 
-  // Sync marker set with props.
+  // Sync marker set with props (runs again once the map (re)loads).
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
+    if (!map || status !== 'ready') return;
     const existing = markerObjs.current;
     const nextIds = new Set(markers.map((m) => m.id));
 
@@ -73,7 +118,7 @@ export default function MapView({
       let mk = existing.get(m.id);
       if (!mk) {
         const el = document.createElement('div');
-        el.style.cssText = markerCss(m.color, false);
+        el.style.cssText = markerCss(m.color, m.id === selectedId);
         el.addEventListener('click', (e) => {
           e.stopPropagation();
           onSelectRef.current?.(m.id);
@@ -85,7 +130,8 @@ export default function MapView({
       }
     }
     // Positioning is driven by `center` (search / locate / drop), not auto-fit.
-  }, [markers]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [markers, status]);
 
   // Reflect selection in marker styling.
   useEffect(() => {
@@ -93,23 +139,24 @@ export default function MapView({
       const m = markers.find((x) => x.id === id);
       if (m) mk.getElement().style.cssText = markerCss(m.color, id === selectedId);
     }
-  }, [selectedId, markers]);
+  }, [selectedId, markers, status]);
 
   // External center changes (e.g. picking a city).
   useEffect(() => {
-    if (center && mapRef.current) {
+    if (center && mapRef.current && status === 'ready') {
       mapRef.current.flyTo({
         center: [center.lng, center.lat],
         zoom: center.zoom ?? 11,
         duration: 500,
       });
     }
-  }, [center?.lat, center?.lng, center?.zoom]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [center?.lat, center?.lng, center?.zoom, status]);
 
   // Distinct marker for the dropped / searched / located point.
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
+    if (!map || status !== 'ready') return;
     if (!origin) {
       originMarker.current?.remove();
       originMarker.current = null;
@@ -123,11 +170,39 @@ export default function MapView({
     } else {
       originMarker.current.setLngLat([origin.lng, origin.lat]);
     }
-  }, [origin?.lat, origin?.lng]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [origin?.lat, origin?.lng, status]);
 
   return (
     <View style={[{ overflow: 'hidden' }, style]}>
       <div ref={containerRef} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+
+      {status === 'loading' ? (
+        <View style={[StyleSheet.absoluteFill, styles.center, { backgroundColor: t.surface }]} pointerEvents="none">
+          <ActivityIndicator color={t.accent} />
+        </View>
+      ) : null}
+
+      {status === 'error' ? (
+        <View style={[StyleSheet.absoluteFill, styles.center, { backgroundColor: t.surface, padding: Spacing.xl }]}>
+          <Txt variant="subtitle" center>
+            Map couldn’t load
+          </Txt>
+          <Txt variant="small" muted center style={{ marginTop: 6, marginBottom: 14, maxWidth: 320 }}>
+            Check your connection and that your browser has WebGL enabled, then try again.
+          </Txt>
+          <Pressable onPress={() => setReloadKey((k) => k + 1)} style={[styles.retry, { backgroundColor: t.accent }]}>
+            <Txt variant="small" weight="semibold" color={t.accentText}>
+              Retry
+            </Txt>
+          </Pressable>
+        </View>
+      ) : null}
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  center: { alignItems: 'center', justifyContent: 'center' },
+  retry: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: Radius.md },
+});

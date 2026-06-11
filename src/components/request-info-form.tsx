@@ -6,6 +6,7 @@ import { Radius } from '@/constants/theme';
 import type { Listing } from '@/data/types';
 import { useTheme } from '@/hooks/use-theme';
 import { useUserData } from '@/lib/user-data';
+import { withAlpha } from './ui/badge';
 import { Button } from './ui/button';
 import { Txt } from './ui/text';
 
@@ -25,11 +26,15 @@ export function RequestInfoForm({ listing, weeks, units }: Props) {
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [failed, setFailed] = useState(false);
 
   const canSubmit = name.trim().length > 1 && EMAIL_RE.test(email.trim());
 
-  function submit() {
-    addRequest({
+  async function submit() {
+    setSubmitting(true);
+    setFailed(false);
+    const ok = await addRequest({
       listingId: listing?.id,
       listingTitle: listing?.title,
       name: name.trim(),
@@ -38,7 +43,11 @@ export function RequestInfoForm({ listing, weeks, units }: Props) {
       weeks,
       units,
     });
-    setSubmitted(true);
+    setSubmitting(false);
+    // Only show success when it actually persisted; otherwise keep the form
+    // filled so nothing is lost and the user can retry.
+    if (ok) setSubmitted(true);
+    else setFailed(true);
   }
 
   if (submitted) {
@@ -89,7 +98,22 @@ export function RequestInfoForm({ listing, weeks, units }: Props) {
           multiline
         />
       </Field>
-      <Button title="Save my interest" icon="bookmark-outline" onPress={submit} disabled={!canSubmit} fullWidth />
+      {failed ? (
+        <View style={[styles.error, { backgroundColor: withAlpha(t.danger, 0.1), borderColor: withAlpha(t.danger, 0.4) }]}>
+          <Ionicons name="alert-circle-outline" size={16} color={t.danger} />
+          <Txt variant="small" color={t.danger} style={{ flex: 1 }}>
+            Couldn’t save just now — your details are still here. Try again.
+          </Txt>
+        </View>
+      ) : null}
+      <Button
+        title={submitting ? 'Saving…' : 'Save my interest'}
+        icon="bookmark-outline"
+        onPress={submit}
+        disabled={!canSubmit}
+        loading={submitting}
+        fullWidth
+      />
     </View>
   );
 }
@@ -139,6 +163,14 @@ const styles = StyleSheet.create({
     gap: 10,
     padding: 20,
     borderRadius: Radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  error: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 12,
+    borderRadius: Radius.md,
     borderWidth: StyleSheet.hairlineWidth,
   },
   check: {
